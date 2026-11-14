@@ -1,0 +1,14 @@
+{
+  "name": "gmail-limpeza",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Limpeza automática e adaptativa do Gmail (Google Apps Script + clasp)",
+  "scripts": {
+    "test": "node --test",
+    "push": "clasp push",
+    "deploy": "powershell -ExecutionPolicy Bypass -File deploy.ps1"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.1"
+  }
+}
