@@ -59,8 +59,8 @@ function instalar() {
     var shR = ss.getSheetByName(ABAS.REGRAS);
     var regraAcao = SpreadsheetApp.newDataValidation().requireValueInList(ACOES, true).build();
     var regraStatus = SpreadsheetApp.newDataValidation().requireValueInList(STATUS, true).build();
-    shR.getRange(2, CABECALHOS.Regras.indexOf('acao') + 1, 2000, 1).setDataValidation(regraAcao);
-    shR.getRange(2, CABECALHOS.Regras.indexOf('status') + 1, 2000, 1).setDataValidation(regraStatus);
+    shR.getRange(2, CABECALHOS.Regras.indexOf('acao') + 1, shR.getMaxRows() - 1, 1).setDataValidation(regraAcao);
+    shR.getRange(2, CABECALHOS.Regras.indexOf('status') + 1, shR.getMaxRows() - 1, 1).setDataValidation(regraStatus);
   } catch (e) { console.log('Validação de dados não aplicada: ' + e); }
 
   // 7) rótulos

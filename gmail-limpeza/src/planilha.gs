@@ -46,7 +46,15 @@ function anexarLinhas(nome, objetos) {
   if (!objetos || !objetos.length) return;
   var sh = aba_(nome);
   var m = paraMatriz_(nome, objetos);
-  sh.getRange(sh.getLastRow() + 1, 1, m.length, m[0].length).setValues(m);
+  var primeira = sh.getLastRow() + 1;
+  garantirLinhas_(sh, primeira + m.length - 1);
+  sh.getRange(primeira, 1, m.length, m[0].length).setValues(m);
+}
+
+/** Amplia a aba quando os dados passam do número de linhas existente (a planilha nasce com 1.000). */
+function garantirLinhas_(sh, ultimaNecessaria) {
+  var max = sh.getMaxRows();
+  if (ultimaNecessaria > max) sh.insertRowsAfter(max, ultimaNecessaria - max + 500);
 }
 
 /** Altera só as células indicadas de uma linha (preserva o que o usuário editou no resto). */
@@ -68,6 +76,7 @@ function regravarAba_(nome, objetos) {
   if (ultima > 1) sh.getRange(2, 1, ultima - 1, cab.length).clearContent();
   if (objetos.length) {
     var m = paraMatriz_(nome, objetos);
+    garantirLinhas_(sh, m.length + 1);
     sh.getRange(2, 1, m.length, cab.length).setValues(m);
   }
 }

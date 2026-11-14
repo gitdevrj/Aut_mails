@@ -24,7 +24,9 @@ function listarArquivos(dir) {
 
 /* ---------- planilha ---------- */
 class Aba {
-  constructor(nome) { this.nome = nome; this.linhas = []; }
+  constructor(nome) { this.nome = nome; this.linhas = []; this.maxLinhas = 1000; }
+  getMaxRows() { return this.maxLinhas; }
+  insertRowsAfter(_pos, n) { this.maxLinhas += n; }
   getName() { return this.nome; }
   _garantir(l, c) {
     while (this.linhas.length < l) this.linhas.push([]);
@@ -42,6 +44,7 @@ class Aba {
   }
   getRange(l, c, nl = 1, nc = 1) {
     const aba = this;
+    if (l + nl - 1 > this.maxLinhas) throw new Error('As coordenadas do intervalo estão fora das dimensões da página.');
     return {
       setValues(m) {
         aba._garantir(l + nl - 1, Math.max(c + nc - 1, ...aba.linhas.map((r) => r.length), 0));

@@ -499,3 +499,13 @@ test('reconhece erros de cota e não confunde com outros erros', () => {
   assert.equal(a.ctx.ehErroDeCota(new Error('User-rate limit exceeded')), true);
   assert.equal(a.ctx.ehErroDeCota(new Error('Requested entity was not found')), false);
 });
+
+test('abas crescem além das 1.000 linhas iniciais da planilha', () => {
+  const a = criarAmbiente();
+  for (let i = 0; i < 1250; i++) a.receber({ de: 'Loja ' + (i % 300) + ' <promo@loja' + (i % 300) + '.com>', labelIds: LIXO });
+  a.ctx.instalar();
+  a.novaExecucao();
+  a.ctx.semear();
+  assert.equal(a.linhas('Historico_Lixeira').length, 1250);
+  assert.ok(a.linhas('Regras').length > 250);
+});
