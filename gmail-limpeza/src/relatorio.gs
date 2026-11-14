@@ -100,6 +100,12 @@ function doGet(e) {
     ).setTitle('Limpeza do Gmail');
   }
   var id = String(p.r || ''), acao = String(p.a || ''), token = String(p.t || '');
+  if (String(p.a || '') === 'diagnostico') {
+    return HtmlService.createHtmlOutput(
+      '<pre style="font-family:Consolas,monospace;padding:24px;white-space:pre-wrap">' +
+      escaparHtml(JSON.stringify(diagnostico(), null, 2)) + '</pre>'
+    ).setTitle('Limpeza do Gmail');
+  }
   // Dispara a carga inicial agora e mostra o resultado (ou o erro) na tela.
   if (String(p.a || '') === 'semear') {
     var texto;
@@ -128,4 +134,63 @@ function doGet(e) {
   return HtmlService.createHtmlOutput(
     '<div style="font-family:Arial,sans-serif;padding:24px;font-size:16px">' + escaparHtml(msg) + '</div>'
   ).setTitle('Limpeza do Gmail');
+}
+
+/** Estado interno, sem dados de e-mails: contagens, acionadores e tempos. */
+function diagnostico() {
+  var d = { agora: new Date().toISOString() };
+  function passo(nome, fn) {
+    var t = Date.now();
+    try { d[nome] = fn(); } catch (e) { d[nome] = 'ERRO: ' + ((e && e.stack) || e); }
+    d[nome + '_ms'] = Date.now() - t;
+  }
+  var cfg;
+  passo('config', function () {
+    cfg = lerConfig();
+    return { janela_dias: cfg.janela_dias, min_exclusoes: cfg.min_exclusoes, limiar_sugestao: cfg.limiar_sugestao,
+      tempo_max_segundos: cfg.tempo_max_segundos, modo_simulacao: cfg.modo_simulacao, status_novas_regras: cfg.status_novas_regras };
+  });
+  passo('propriedades', function () {
+    var props = propriedades_(), o = {};
+    props.getKeys().forEach(function (k) {
+      o[k] = /SEGREDO/.test(k) ? '(oculto)' : String(props.getProperty(k)).slice(0, 80);
+    });
+    return o;
+  });
+  passo('acionadores', function () {
+    return ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+  });
+  var hist = [];
+  passo('historico', function () {
+    hist = lerLinhas(ABAS.HISTORICO);
+    var v = hist.length ? hist[0].excluida_em_aprox : null;
+    return { linhas: hist.length, tipoData: Object.prototype.toString.call(v), dataMs: paraMs(v), agoraMs: Date.now() };
+  });
+  passo('candidatos', function () {
+    var c = {};
+    hist.forEach(function (l) {
+      if (Date.now() - paraMs(l.excluida_em_aprox) > cfg.janela_dias * 86400000) return;
+      var r = String(l.remetente).toLowerCase();
+      c[r] = (c[r] || 0) + 1;
+    });
+    var todos = Object.keys(c);
+    return { remetentes: todos.length, comMinimo: todos.filter(function (r) { return c[r] >= cfg.min_exclusoes; }).length };
+  });
+  passo('comportamento', function () { return lerLinhas(ABAS.COMPORTAMENTO).length; });
+  passo('umaBusca', function () { return gmailContar_('in:inbox newer_than:2d'); });
+  passo('alvos', function () {
+    var comp = {};
+    lerLinhas(ABAS.COMPORTAMENTO).forEach(function (l) { comp[String(l.chave).toLowerCase()] = l; });
+    var g = agruparHistorico(hist, Date.now(), cfg.janela_dias, cfg.extensoesProtegidas);
+    mesclarComportamento(g, comp);
+    var a = escolherAlvos(g, cfg);
+    return { grupos: Object.keys(g).length, alvos: a.length, dominio: a.filter(function (x) { return x.tipo === 'dominio'; }).length };
+  });
+  passo('trava', function () {
+    var t = LockService.getScriptLock();
+    var ok = t.tryLock(1000);
+    if (ok) t.releaseLock();
+    return ok ? 'livre' : 'OCUPADA por outra execução';
+  });
+  return d;
 }

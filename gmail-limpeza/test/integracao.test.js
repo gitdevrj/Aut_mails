@@ -421,3 +421,14 @@ test('falhas das execuções ficam registradas na aba Erros', () => {
   const resp = a.ctx.doGet({ parameter: { a: 'semear' } });
   assert.match(resp.conteudo, /Erro: .*falha simulada/);
 });
+
+test('diagnóstico mostra contagens sem expor conteúdo', () => {
+  const a = cenario();
+  a.novaExecucao();
+  a.ctx.semear();
+  const d = JSON.parse(JSON.stringify(a.ctx.diagnostico()));
+  assert.equal(d.historico.linhas, 15);
+  assert.ok(d.candidatos.comMinimo >= 3);
+  assert.equal(d.trava, 'livre');
+  assert.ok(!JSON.stringify(d).includes('Oferta'));
+});
