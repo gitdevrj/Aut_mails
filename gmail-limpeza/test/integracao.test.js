@@ -396,3 +396,15 @@ test('poda remove linhas antigas do Log', () => {
   a.ctx.executarAprendizado();
   assert.deepEqual(Array.from(a.linhas('Log'), (l) => l.id_mensagem), ['nova']);
 });
+
+test('instalação pelo Web App (?a=instalar) cria tudo e é idempotente', () => {
+  const a = criarAmbiente();
+  let resp = a.ctx.doGet({ parameter: { a: 'instalar' } });
+  assert.match(resp.conteudo, /Instalação concluída/);
+  assert.match(resp.conteudo, /docs\.google\.com\/spreadsheets/);
+  assert.equal(Object.keys(a.estado.planilhas).length, 1);
+  a.novaExecucao();
+  resp = a.ctx.doGet({ parameter: { a: 'instalar' } });
+  assert.equal(Object.keys(a.estado.planilhas).length, 1);
+  assert.equal(a.estado.gatilhos.filter((g) => g.tipo !== 'unico').length, 5);
+});

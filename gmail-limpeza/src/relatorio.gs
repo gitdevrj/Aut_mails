@@ -85,6 +85,15 @@ function enviarRelatorio() {
  */
 function doGet(e) {
   var p = (e && e.parameter) || {};
+  // Instalação pelo navegador: só o dono da conta alcança este endereço (acesso "somente eu").
+  if (String(p.a || '') === 'instalar') {
+    var url = instalar();
+    return HtmlService.createHtmlOutput(
+      '<div style="font-family:Arial,sans-serif;padding:24px;font-size:16px">Instalação concluída.<br><br>' +
+      '<a target="_blank" href="' + escaparHtml(url) + '">Abrir a planilha de controle</a><br><br>' +
+      'Em alguns minutos você recebe um e-mail com as primeiras regras.</div>'
+    ).setTitle('Limpeza do Gmail');
+  }
   var id = String(p.r || ''), acao = String(p.a || ''), token = String(p.t || '');
   var destino = { aprovar: 'ativa', rejeitar: 'rejeitada', pausar: 'pausada' }[acao];
   var msg;
