@@ -71,7 +71,11 @@ test('instalar é idempotente', () => {
     rotulos: a.estado.rotulos.length
   }, antes);
   const fixos = a.estado.gatilhos.filter((g) => g.tipo !== 'unico').map((g) => g.fn).sort();
-  assert.deepEqual(fixos, ['coletarHistorico', 'criarRascunhos', 'enviarRelatorio', 'executarAprendizado', 'executarLimpeza']);
+  assert.deepEqual(fixos, ['coletarHistorico', 'criarRascunhos', 'criarRascunhos', 'enviarRelatorio', 'executarAprendizado',
+    'executarLimpeza', 'executarLimpeza']);
+  const horas = (fn) => a.estado.gatilhos.filter((g) => g.fn === fn).map((g) => g.hora);
+  assert.deepEqual(horas('executarLimpeza'), [7, 15]);
+  assert.deepEqual(horas('criarRascunhos'), [7, 15]);
   assert.equal(a.estado.gatilhos.filter((g) => g.fn === 'semear').length, 1, 'carga inicial agendada uma única vez');
   const cfg = a.ctx.lerConfig();
   assert.equal(cfg.modo_simulacao, true);
@@ -406,7 +410,7 @@ test('instalação pelo Web App (?a=instalar) cria tudo e é idempotente', () =>
   a.novaExecucao();
   resp = a.ctx.doGet({ parameter: { a: 'instalar' } });
   assert.equal(Object.keys(a.estado.planilhas).length, 1);
-  assert.equal(a.estado.gatilhos.filter((g) => g.tipo !== 'unico').length, 5);
+  assert.equal(a.estado.gatilhos.filter((g) => g.tipo !== 'unico').length, 7);
 });
 
 test('falhas das execuções ficam registradas na aba Erros', () => {
@@ -431,4 +435,67 @@ test('diagnóstico mostra contagens sem expor conteúdo', () => {
   assert.ok(d.candidatos.comMinimo >= 3);
   assert.equal(d.trava, 'livre');
   assert.ok(!JSON.stringify(d).includes('Oferta'));
+});
+
+test('limpeza das 7h e das 15h: a segunda execução do dia pega o que chegou depois', () => {
+  const a = cenarioReal();
+  const manha = a.receber({ de: 'Temu <email@market.temuemail.com>' });
+  a.ctx.executarLimpeza();
+  assert.equal(naLixeira(a, manha), true);
+  const tarde = a.receber({ de: 'Temu <email@market.temuemail.com>' });
+  a.novaExecucao();
+  a.ctx.executarLimpeza();
+  assert.equal(naLixeira(a, tarde), true);
+});
+
+test('horários configuráveis na Config', () => {
+  const a = cenario();
+  a.configurar('horarios_limpeza', '6, 12,18');
+  a.configurar('horarios_rascunhos', '9');
+  a.ctx.instalar();
+  const horas = (fn) => Array.from(a.estado.gatilhos.filter((g) => g.fn === fn), (g) => g.hora);
+  assert.deepEqual(horas('executarLimpeza'), [6, 12, 18]);
+  assert.deepEqual(horas('criarRascunhos'), [9]);
+  assert.deepEqual(Array.from(a.ctx.listaDeHoras('7;15, 15, 99, x')), [7, 15]);
+});
+
+const ERRO_COTA = "Falha na chamada de API para gmail.users.messages.list com o erro Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user'";
+
+test('limite de requisições do Gmail: espera e tenta de novo', () => {
+  const a = cenario();
+  a.novaExecucao();
+  const original = a.ctx.Gmail.Users.Messages.list;
+  let falhas = 3;
+  a.ctx.Gmail.Users.Messages.list = (...args) => {
+    if (falhas > 0) { falhas--; throw new Error(ERRO_COTA); }
+    return original(...args);
+  };
+  a.ctx.semear();
+  assert.deepEqual(a.estado.esperas.filter((ms) => ms >= 1000), [5000, 15000, 30000]);
+  assert.ok(regraDe(a, 'remetente:email@market.temuemail.com'), 'a carga inicial termina mesmo assim');
+});
+
+test('limite de requisições persistente: não falha, agenda a retomada e conclui depois', () => {
+  const a = cenario();
+  a.novaExecucao();
+  const original = a.ctx.Gmail.Users.Messages.list;
+  a.ctx.Gmail.Users.Messages.list = () => { throw new Error(ERRO_COTA); };
+  a.ctx.semear();
+  const cont = a.estado.gatilhos.filter((g) => g.fn === 'semear' && g.tipo === 'unico');
+  assert.equal(cont.length, 1);
+  assert.equal(cont[0].apos, 180000);
+  assert.equal(a.linhas('Regras').filter((r) => r.origem === 'aprendida').length, 0);
+  assert.equal(a.estado.planilhas[Object.keys(a.estado.planilhas)[0]].getSheetByName('Erros').getLastRow(), 1, 'cota não é registrada como erro');
+  a.ctx.Gmail.Users.Messages.list = original;
+  a.novaExecucao();
+  a.ctx.semear();
+  assert.ok(regraDe(a, 'remetente:email@market.temuemail.com'));
+  assert.equal(a.estado.gatilhos.filter((g) => g.fn === 'semear').length, 0);
+});
+
+test('reconhece erros de cota e não confunde com outros erros', () => {
+  const a = criarAmbiente();
+  assert.equal(a.ctx.ehErroDeCota(new Error(ERRO_COTA)), true);
+  assert.equal(a.ctx.ehErroDeCota(new Error('User-rate limit exceeded')), true);
+  assert.equal(a.ctx.ehErroDeCota(new Error('Requested entity was not found')), false);
 });

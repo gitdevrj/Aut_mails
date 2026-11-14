@@ -34,6 +34,8 @@ var STATUS = ['sugerida', 'ativa', 'pausada', 'rejeitada'];
 
 /** [chave, valor padrão, descrição]. O tipo do padrão define como o valor é lido. */
 var CONFIG_PADRAO = [
+  ['horarios_limpeza', '7,15', 'Horas do dia (0-23, separadas por vírgula) em que a limpeza roda. Depois de alterar, execute instalar() de novo.'],
+  ['horarios_rascunhos', '7,15', 'Horas do dia em que os rascunhos de resposta são criados. Depois de alterar, execute instalar() de novo.'],
   ['modo_simulacao', true, 'TRUE: só registra no Log o que seria feito, sem mover nada. Mude para FALSE para a limpeza valer.'],
   ['status_novas_regras', 'ativa', 'Status das regras criadas pelo aprendizado: "ativa" (entra direto) ou "sugerida" (espera aprovação).'],
   ['auto_promover', false, 'TRUE: promove regra sugerida para ativa após semanas_promocao semanas acima de limiar_promocao.'],

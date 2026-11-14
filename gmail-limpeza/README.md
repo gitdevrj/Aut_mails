@@ -13,9 +13,9 @@ O script **nunca exclui nada permanentemente**. A ação máxima é mover para a
 
 | Acionador | Quando | O que faz |
 |---|---|---|
-| `executarLimpeza` | todo dia, 3h | aplica as regras `ativa` |
+| `executarLimpeza` | todo dia, 7h e 15h | aplica as regras `ativa` |
 | `coletarHistorico` | a cada 6 horas | registra o que você excluiu, mede seu comportamento por remetente, detecta e-mails que você recuperou |
-| `criarRascunhos` | de hora em hora | cria rascunho de resposta para e-mails profissionais novos |
+| `criarRascunhos` | todo dia, 7h e 15h | cria rascunho de resposta para e-mails profissionais novos |
 | `executarAprendizado` | domingo, 5h | calcula os scores e cria regras |
 | `enviarRelatorio` | segunda, 7h | e-mail HTML para você mesmo |
 
@@ -41,6 +41,8 @@ Só metadados vão para a planilha (remetente, assunto, datas, rótulos). O corp
 - Se você tirar da lixeira um e-mail que o script moveu, a regra perde confiança, é pausada no segundo erro e o remetente passa a ser protegido.
 
 Observação: o Gmail marca sozinho alguns boletins como "importante". Esses e-mails ficam de fora da limpeza, mesmo que exista regra para o remetente.
+
+Os horários são aproximados: o Google dispara cada acionador com até 15 minutos de diferença do horário marcado.
 
 ## 1. Instalação
 
@@ -143,6 +145,8 @@ Tudo é lido da aba `Config` a cada execução; a coluna `descricao` explica cad
 
 | Chave | Padrão | Para que serve |
 |---|---|---|
+| `horarios_limpeza` | 7,15 | horas em que a limpeza roda (execute `instalar` de novo após mudar) |
+| `horarios_rascunhos` | 7,15 | horas em que os rascunhos são criados (idem) |
 | `modo_simulacao` | TRUE | liga/desliga a limpeza de verdade |
 | `status_novas_regras` | ativa | como as regras aprendidas entram |
 | `limiar_sugestao` | 70 | score mínimo para criar regra |

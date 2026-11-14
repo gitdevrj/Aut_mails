@@ -11,8 +11,36 @@ var CATEGORIAS = {
 
 var _meuEmail = null;
 function meuEmail_() {
-  if (!_meuEmail) _meuEmail = String(Gmail.Users.getProfile('me').emailAddress).toLowerCase();
+  if (!_meuEmail) _meuEmail = String(gmailChamar_(function () { return Gmail.Users.getProfile('me'); }).emailAddress).toLowerCase();
   return _meuEmail;
+}
+
+/**
+ * Executa uma chamada ao Gmail. Se o Google recusar por limite de requisições (cota por minuto),
+ * espera e tenta de novo. Se o limite persistir, lança um erro marcado com "cota = true":
+ * quem chamou salva o ponto e retoma minutos depois.
+ */
+var PAUSA_GMAIL_MS = 150; // intervalo entre chamadas, para não estourar o limite por minuto
+
+function gmailChamar_(fn) {
+  var esperas = [5, 15, 30, 45];
+  for (var tentativa = 0; ; tentativa++) {
+    try { var r = fn(); Utilities.sleep(PAUSA_GMAIL_MS); return r; }
+    catch (e) {
+      if (!ehErroDeCota(e)) throw e;
+      var decorrido = (Date.now() - _inicioExecucao) / 1000;
+      if (tentativa >= esperas.length || decorrido + esperas[tentativa] > 300) {
+        var erro = new Error('Limite de requisições do Gmail atingido; a execução será retomada em alguns minutos.');
+        erro.cota = true;
+        throw erro;
+      }
+      Utilities.sleep(esperas[tentativa] * 1000);
+    }
+  }
+}
+
+function gmailLote_(corpo) {
+  return gmailChamar_(function () { return Gmail.Users.Messages.batchModify(corpo, 'me'); });
 }
 
 /** Uma página de ids. Devolve { ids:[...], proximo:'token' }. */
@@ -20,7 +48,7 @@ function gmailListarIds_(q, token, max, incluirLixeira) {
   var p = { q: q, maxResults: max || 100 };
   if (token) p.pageToken = token;
   if (incluirLixeira) p.includeSpamTrash = true;
-  var r = Gmail.Users.Messages.list('me', p);
+  var r = gmailChamar_(function () { return Gmail.Users.Messages.list('me', p); });
   return {
     ids: (r.messages || []).map(function (m) { return m.id; }),
     proximo: r.nextPageToken || ''
@@ -52,10 +80,12 @@ function nomesDeAnexos_(parte, saida) {
 
 /** Metadados de uma mensagem. O corpo não é baixado (campos parciais). */
 function gmailMetadados_(id) {
-  var m = Gmail.Users.Messages.get('me', id, {
-    format: 'full',
-    fields: 'id,threadId,labelIds,internalDate,payload(filename,headers(name,value),' +
-      'parts(filename,parts(filename,parts(filename,parts(filename)))))'
+  var m = gmailChamar_(function () {
+    return Gmail.Users.Messages.get('me', id, {
+      format: 'full',
+      fields: 'id,threadId,labelIds,internalDate,payload(filename,headers(name,value),' +
+        'parts(filename,parts(filename,parts(filename,parts(filename)))))'
+    });
   });
   var cab = {};
   ((m.payload && m.payload.headers) || []).forEach(function (h) {
@@ -91,13 +121,15 @@ var _rotulos = null;
 function gmailIdRotulo_(nome, criar) {
   if (!_rotulos) {
     _rotulos = {};
-    (Gmail.Users.Labels.list('me').labels || []).forEach(function (l) { _rotulos[l.name] = l.id; });
+    (gmailChamar_(function () { return Gmail.Users.Labels.list('me'); }).labels || []).forEach(function (l) { _rotulos[l.name] = l.id; });
   }
   if (_rotulos[nome]) return _rotulos[nome];
   if (!criar) return '';
-  var novo = Gmail.Users.Labels.create({
-    name: nome, labelListVisibility: 'labelShow', messageListVisibility: 'show'
-  }, 'me');
+  var novo = gmailChamar_(function () {
+    return Gmail.Users.Labels.create({
+      name: nome, labelListVisibility: 'labelShow', messageListVisibility: 'show'
+    }, 'me');
+  });
   _rotulos[nome] = novo.id;
   return novo.id;
 }
@@ -108,7 +140,7 @@ function gmailRotular_(ids, adicionar, remover) {
     var corpo = { ids: ids.slice(i, i + 1000) };
     if (adicionar && adicionar.length) corpo.addLabelIds = adicionar;
     if (remover && remover.length) corpo.removeLabelIds = remover;
-    Gmail.Users.Messages.batchModify(corpo, 'me');
+    gmailLote_(corpo);
   }
 }
 

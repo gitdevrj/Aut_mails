@@ -34,7 +34,8 @@ function coletarLixeira_(cfg) {
   for (var i = 0; i < novos.length; i++) {
     if (tempoEsgotado_(cfg)) { completo = false; break; }
     var m;
-    try { m = gmailMetadados_(novos[i]); } catch (e) { continue; }
+    try { m = gmailMetadados_(novos[i]); }
+    catch (e) { if (e && e.cota) { anexarLinhas(ABAS.HISTORICO, buffer); throw e; } continue; }
     var rot = m.rotulos;
     if (rot.indexOf(idRotulo) >= 0 || rot.indexOf('SENT') >= 0 || rot.indexOf('DRAFT') >= 0) continue;
     if (!m.remetente || m.remetente === meuEmail_()) continue;
@@ -97,15 +98,16 @@ function detectarRestauracoes_(cfg) {
 /** Contraexemplos: o que você lê, responde, marca com estrela ou mantém na caixa, por remetente. */
 function medirComportamento_(email, cfg) {
   var janela = ' newer_than:' + cfg.janela_dias + 'd';
-  return {
-    chave: email,
-    recebidos: gmailContar_('from:' + email + janela),
-    lidos: gmailContar_('from:' + email + ' is:read' + janela),
-    respondidos: gmailContar_('to:' + email + ' in:sent'),
-    estrelados: gmailContar_('from:' + email + ' is:starred'),
-    mantidos_caixa: gmailContar_('from:' + email + ' in:inbox older_than:' + cfg.dias_permanencia_caixa + 'd'),
-    atualizado_em: new Date()
-  };
+  var m = { chave: email, recebidos: 0, lidos: 0, respondidos: 0, estrelados: 0, mantidos_caixa: 0, atualizado_em: new Date() };
+  m.respondidos = gmailContar_('to:' + email + ' in:sent');
+  if (m.respondidos > 0) return m; // já veta a regra; não gasta mais buscas
+  m.recebidos = gmailContar_('from:' + email + janela);
+  if (m.recebidos > 0) {
+    m.lidos = gmailContar_('from:' + email + ' is:read' + janela);
+    m.mantidos_caixa = gmailContar_('from:' + email + ' in:inbox older_than:' + cfg.dias_permanencia_caixa + 'd');
+  }
+  m.estrelados = gmailContar_('from:' + email + ' is:starred');
+  return m;
 }
 
 /**

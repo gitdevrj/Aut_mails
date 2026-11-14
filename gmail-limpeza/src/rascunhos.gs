@@ -4,7 +4,7 @@
  * O script só cria o rascunho na conversa; nunca envia nada.
  */
 
-/** Acionador de hora em hora. */
+/** Acionador nos horários de Config.horarios_rascunhos (padrão: 7h e 15h). */
 function criarRascunhos() {
   return comTrava_(function () { return rascunhosInterno_(); }, 'criarRascunhos');
 }
@@ -21,9 +21,9 @@ function rascunhosInterno_() {
   var conversas = {};
   var criados = 0;
   for (var i = 0; i < ids.length; i++) {
-    if (tempoEsgotado_(cfg)) return criados; // não avança o marcador: retoma na próxima hora
+    if (tempoEsgotado_(cfg)) return criados; // não avança o marcador: retoma na próxima execução
     var m;
-    try { m = gmailMetadados_(ids[i]); } catch (e) { continue; }
+    try { m = gmailMetadados_(ids[i]); } catch (e) { if (e && e.cota) throw e; continue; }
     if (!deveCriarRascunho(m, cfg.termosProfissionais, meuEmail_()).ok) continue;
     if (conversas[m.idConversa] || conversaTemRascunho_(m.idConversa)) continue;
     conversas[m.idConversa] = true;
@@ -39,7 +39,9 @@ function rascunhosInterno_() {
 }
 
 function conversaTemRascunho_(idConversa) {
-  var t = Gmail.Users.Threads.get('me', idConversa, { format: 'minimal', fields: 'messages(id,labelIds)' });
+  var t = gmailChamar_(function () {
+    return Gmail.Users.Threads.get('me', idConversa, { format: 'minimal', fields: 'messages(id,labelIds)' });
+  });
   return (t.messages || []).some(function (x) { return (x.labelIds || []).indexOf('DRAFT') >= 0; });
 }
 
@@ -55,7 +57,9 @@ function criarRascunho_(m, cfg) {
     referencias: m.referencias,
     corpoBase64: corpo64
   });
-  Gmail.Users.Drafts.create({
-    message: { raw: Utilities.base64EncodeWebSafe(bruto), threadId: m.idConversa }
-  }, 'me');
+  gmailChamar_(function () {
+    return Gmail.Users.Drafts.create({
+      message: { raw: Utilities.base64EncodeWebSafe(bruto), threadId: m.idConversa }
+    }, 'me');
+  });
 }

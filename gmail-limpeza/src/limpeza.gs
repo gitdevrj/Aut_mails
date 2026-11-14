@@ -3,21 +3,23 @@
  * Nunca exclui permanentemente; a ação máxima é mover para a Lixeira.
  */
 
-/** Acionador diário (madrugada). */
+/** Acionador nos horários de Config.horarios_limpeza (padrão: 7h e 15h). */
 function executarLimpeza() {
   comTrava_(function () {
-    limparContinuacoes_('executarLimpeza');
-    if (limpezaInterna_()) agendarContinuacao_('executarLimpeza');
+    var retomada = limparContinuacoes_('executarLimpeza');
+    if (limpezaInterna_(retomada)) agendarContinuacao_('executarLimpeza');
   }, 'executarLimpeza');
 }
 
 /** Devolve true se ficou trabalho pendente por falta de tempo. */
-function limpezaInterna_() {
+function limpezaInterna_(retomada) {
   var cfg = lerConfig();
   var props = propriedades_();
   var hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   var estado = JSON.parse(props.getProperty('LIMPEZA_ESTADO') || '{}');
   if (estado.dia !== hoje) estado = { dia: hoje, feitas: {}, examinadas: 0 };
+  // cada horário agendado percorre todas as regras de novo; só a retomada pula as já concluídas
+  if (!retomada) estado.feitas = {};
 
   var regras = lerLinhas(ABAS.REGRAS).filter(function (r) { return String(r.status).trim() === 'ativa'; });
   if (!regras.length) return false;
@@ -57,7 +59,7 @@ function limpezaInterna_() {
       var escolhidas = [];
       lote.forEach(function (id) {
         var meta;
-        try { meta = gmailMetadados_(id); } catch (e) { return; }
+        try { meta = gmailMetadados_(id); } catch (e) { if (e && e.cota) throw e; return; }
         estado.examinadas++;
         if (!podeAfetar(meta, regra, protegidos, cfg).ok) { ignoradas.lista.push(id); return; }
         if (jaRespondi_(meta.remetente)) {
@@ -119,11 +121,17 @@ function aplicarAcao_(regra, acao, metas, simulacao, idRotulo) {
   if (acao === 'arquivar') { gmailRotular_(ids, [idRotulo], ['INBOX']); return ids.length; }
   if (acao === 'ler_rotular') { gmailRotular_(ids, [idRotulo], ['UNREAD']); return ids.length; }
   var movidas = [];
-  ids.forEach(function (id) {
-    try { Gmail.Users.Messages.trash('me', id); movidas.push(id); }
-    catch (e) { console.log('Falha ao mover ' + id + ': ' + e); }
-  });
+  var cota = null;
+  for (var i = 0; i < ids.length && !cota; i++) {
+    try {
+      (function (id) { gmailChamar_(function () { return Gmail.Users.Messages.trash('me', id); }); })(ids[i]);
+      movidas.push(ids[i]);
+    } catch (e) {
+      if (e && e.cota) cota = e; else console.log('Falha ao mover ' + ids[i] + ': ' + e);
+    }
+  }
   if (movidas.length) gmailRotular_(movidas, [idRotulo], []);
+  if (cota) throw cota;
   return movidas.length;
 }
 
@@ -152,11 +160,16 @@ function restaurar(idRegra, desde) {
     if (tempoEsgotado_(cfg)) { console.log('Tempo esgotado: execute de novo para continuar.'); break; }
     var l = linhas[i];
     try {
-      Gmail.Users.Messages.untrash('me', l.id_mensagem);
-      Gmail.Users.Messages.modify({ addLabelIds: ['INBOX'], removeLabelIds: [idRotulo] }, 'me', l.id_mensagem);
+      (function (idMsg) {
+        gmailChamar_(function () { return Gmail.Users.Messages.untrash('me', idMsg); });
+        gmailChamar_(function () {
+          return Gmail.Users.Messages.modify({ addLabelIds: ['INBOX'], removeLabelIds: [idRotulo] }, 'me', idMsg);
+        });
+      })(l.id_mensagem);
       atualizarCampos(ABAS.LOG, l._linha, { restaurada_em: new Date(), feedback: 'restaurada_por_funcao' });
       n++;
     } catch (e) {
+      if (e && e.cota) { console.log('Limite do Gmail atingido: execute de novo em alguns minutos.'); break; }
       atualizarCampos(ABAS.LOG, l._linha, { restaurada_em: new Date(), feedback: 'nao_encontrada' });
     }
   }

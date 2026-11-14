@@ -108,7 +108,7 @@ function buscar(estado, q, incluirLixeira) {
 function criarAmbiente() {
   const estado = {
     mensagens: [], rotulos: [], rascunhos: [], emailsEnviados: [], gatilhos: [], props: {}, cache: {},
-    planilhas: {}, seq: 0, chamadas: { excluirPermanente: 0 },
+    planilhas: {}, seq: 0, esperas: [], chamadas: { excluirPermanente: 0 },
     agora: () => Date.now()
   };
   const achar = (id) => {
@@ -174,9 +174,9 @@ function criarAmbiente() {
   const criarGatilho = (fn) => {
     const g = { fn, id: 'g' + (++estado.seq), tipo: '' };
     const b = {
-      timeBased: () => b, everyDays: () => { g.tipo = 'diario'; return b; }, atHour: () => b,
+      timeBased: () => b, everyDays: () => { g.tipo = 'diario'; return b; }, atHour: (h) => { g.hora = h; return b; }, nearMinute: () => b,
       everyHours: (n) => { g.tipo = 'horas:' + n; return b; }, onWeekDay: () => { g.tipo = 'semanal'; return b; },
-      after: () => { g.tipo = 'unico'; return b; },
+      after: (ms) => { g.tipo = 'unico'; g.apos = ms; return b; },
       create: () => { estado.gatilhos.push(g); return gatilhoPublico(g); }
     };
     return b;
@@ -225,6 +225,7 @@ function criarAmbiente() {
           .replace('H', d.getHours());
       },
       getUuid: () => crypto.randomUUID(),
+      sleep: (ms) => { estado.esperas.push(ms); },
       computeHmacSha256Signature: (texto, chave) => Array.from(crypto.createHmac('sha256', chave).update(texto).digest())
         .map((b) => (b > 127 ? b - 256 : b)),
       base64Encode: (s) => Buffer.from(s, 'utf8').toString('base64'),

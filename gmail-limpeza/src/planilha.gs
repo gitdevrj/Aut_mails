@@ -93,19 +93,21 @@ function tempoEsgotado_(cfg) {
 }
 
 /** Agenda a mesma função para daqui a 1 minuto (continuação após o limite de tempo). */
-function agendarContinuacao_(funcao) {
+function agendarContinuacao_(funcao, segundos) {
   limparContinuacoes_(funcao);
-  var t = ScriptApp.newTrigger(funcao).timeBased().after(60 * 1000).create();
+  var t = ScriptApp.newTrigger(funcao).timeBased().after((segundos || 60) * 1000).create();
   propriedades_().setProperty('CONT_' + funcao, t.getUniqueId());
 }
 
+/** Remove a continuação agendada. Devolve true se havia uma (ou seja, esta execução é uma retomada). */
 function limparContinuacoes_(funcao) {
   var id = propriedades_().getProperty('CONT_' + funcao);
-  if (!id) return;
+  if (!id) return false;
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getUniqueId() === id) ScriptApp.deleteTrigger(t);
   });
   propriedades_().deleteProperty('CONT_' + funcao);
+  return true;
 }
 
 /** Grava uma falha na aba Erros (criando a aba se preciso). Nunca lança exceção. */
@@ -129,6 +131,11 @@ function comTrava_(fn, nome) {
   var trava = LockService.getScriptLock();
   if (!trava.tryLock(5000)) { console.log('Outra execução em andamento; saindo.'); return; }
   try { return fn(); }
-  catch (e) { registrarErro_(nome || '?', e); throw e; }
+  catch (e) {
+    // limite de requisições do Gmail: não é falha, só retoma mais tarde
+    if (e && e.cota && nome) { agendarContinuacao_(nome, 180); return; }
+    registrarErro_(nome || '?', e);
+    throw e;
+  }
   finally { trava.releaseLock(); }
 }

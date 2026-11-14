@@ -71,11 +71,18 @@ function instalar() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (ACIONADORES.indexOf(t.getHandlerFunction()) >= 0 || t.getHandlerFunction() === 'semear') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('executarLimpeza').timeBased().everyDays(1).atHour(3).create();
+  var cfg = lerConfig();
+  var horasLimpeza = listaDeHoras(cfg.horarios_limpeza);
+  if (!horasLimpeza.length) horasLimpeza = [7, 15];
+  horasLimpeza.forEach(function (h) {
+    ScriptApp.newTrigger('executarLimpeza').timeBased().everyDays(1).atHour(h).nearMinute(0).create();
+  });
+  listaDeHoras(cfg.horarios_rascunhos).forEach(function (h) {
+    ScriptApp.newTrigger('criarRascunhos').timeBased().everyDays(1).atHour(h).nearMinute(0).create();
+  });
   ScriptApp.newTrigger('coletarHistorico').timeBased().everyHours(6).create();
   ScriptApp.newTrigger('executarAprendizado').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(5).create();
   ScriptApp.newTrigger('enviarRelatorio').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
-  ScriptApp.newTrigger('criarRascunhos').timeBased().everyHours(1).create();
 
   // 9) carga inicial: lê a lixeira atual e cria as primeiras regras (só na primeira instalação)
   if (!props.getProperty('SEMENTE_FEITA')) {

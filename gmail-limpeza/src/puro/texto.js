@@ -86,3 +86,21 @@ function paraMs(v) {
   if (!v) return NaN;
   return new Date(v).getTime();
 }
+
+/** "7, 15" -> [7, 15] (inteiros de 0 a 23, sem repetição, em ordem). */
+function listaDeHoras(s) {
+  var saida = [];
+  String(s === null || s === undefined ? '' : s).split(/[,;\s]+/).forEach(function (x) {
+    if (!/^\d{1,2}$/.test(x)) return;
+    var h = Number(x);
+    if (h >= 0 && h <= 23 && saida.indexOf(h) < 0) saida.push(h);
+  });
+  return saida.sort(function (a, b) { return a - b; });
+}
+
+/** O erro devolvido pelo Google é de limite de requisições (e vale a pena esperar e repetir)? */
+function ehErroDeCota(e) {
+  var m = String((e && e.message) || e || '').toLowerCase();
+  return m.indexOf('quota exceeded') >= 0 || m.indexOf('rate limit') >= 0 || m.indexOf('ratelimitexceeded') >= 0 ||
+    m.indexOf('too many') >= 0 || m.indexOf('user-rate') >= 0 || m.indexOf('backend error') >= 0;
+}
