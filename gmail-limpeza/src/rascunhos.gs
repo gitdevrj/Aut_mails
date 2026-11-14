@@ -6,7 +6,7 @@
 
 /** Acionador de hora em hora. */
 function criarRascunhos() {
-  return comTrava_(function () { return rascunhosInterno_(); });
+  return comTrava_(function () { return rascunhosInterno_(); }, 'criarRascunhos');
 }
 
 function rascunhosInterno_() {

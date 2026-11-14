@@ -8,7 +8,7 @@ function coletarHistorico() {
   comTrava_(function () {
     limparContinuacoes_('coletarHistorico');
     if (!coletaInterna_(false)) agendarContinuacao_('coletarHistorico');
-  });
+  }, 'coletarHistorico');
 }
 
 /** Devolve true quando terminou tudo; false se parou por tempo. */

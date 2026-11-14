@@ -108,9 +108,27 @@ function limparContinuacoes_(funcao) {
   propriedades_().deleteProperty('CONT_' + funcao);
 }
 
-/** Executa fn com trava para duas execuções não se atropelarem. */
-function comTrava_(fn) {
+/** Grava uma falha na aba Erros (criando a aba se preciso). Nunca lança exceção. */
+function registrarErro_(funcao, e) {
+  try {
+    var ss = obterPlanilha();
+    var sh = ss.getSheetByName(ABAS.ERROS);
+    if (!sh) {
+      sh = ss.insertSheet(ABAS.ERROS);
+      sh.getRange(1, 1, 1, CABECALHOS.Erros.length).setValues([CABECALHOS.Erros]);
+    }
+    anexarLinhas(ABAS.ERROS, [{
+      data: new Date(), funcao: funcao, mensagem: String((e && e.message) || e),
+      pilha: String((e && e.stack) || '').slice(0, 2000)
+    }]);
+  } catch (x) { console.log('Falha ao registrar erro: ' + x); }
+}
+
+/** Executa fn com trava (duas execuções não se atropelam) e registra falhas na aba Erros. */
+function comTrava_(fn, nome) {
   var trava = LockService.getScriptLock();
   if (!trava.tryLock(5000)) { console.log('Outra execução em andamento; saindo.'); return; }
-  try { return fn(); } finally { trava.releaseLock(); }
+  try { return fn(); }
+  catch (e) { registrarErro_(nome || '?', e); throw e; }
+  finally { trava.releaseLock(); }
 }

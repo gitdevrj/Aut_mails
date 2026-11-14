@@ -8,7 +8,7 @@ function executarLimpeza() {
   comTrava_(function () {
     limparContinuacoes_('executarLimpeza');
     if (limpezaInterna_()) agendarContinuacao_('executarLimpeza');
-  });
+  }, 'executarLimpeza');
 }
 
 /** Devolve true se ficou trabalho pendente por falta de tempo. */

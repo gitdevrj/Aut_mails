@@ -21,6 +21,11 @@ function linkAcao_(base, idRegra, acao) {
 
 /** Acionador semanal. */
 function enviarRelatorio() {
+  try { enviarRelatorioInterno_(); }
+  catch (e) { registrarErro_('enviarRelatorio', e); throw e; }
+}
+
+function enviarRelatorioInterno_() {
   var cfg = lerConfig();
   var agora = new Date();
   var semana = agora.getTime() - 7 * 86400000;
@@ -95,6 +100,19 @@ function doGet(e) {
     ).setTitle('Limpeza do Gmail');
   }
   var id = String(p.r || ''), acao = String(p.a || ''), token = String(p.t || '');
+  // Dispara a carga inicial agora e mostra o resultado (ou o erro) na tela.
+  if (String(p.a || '') === 'semear') {
+    var texto;
+    try {
+      propriedades_().setProperty('SEMENTE_PENDENTE', '1');
+      semear();
+      texto = propriedades_().getProperty('SEMENTE_PENDENTE')
+        ? 'Carga inicial em andamento; continua sozinha em 1 minuto.' : 'Carga inicial concluída.';
+    } catch (err) { texto = 'Erro: ' + ((err && err.stack) || err); }
+    return HtmlService.createHtmlOutput(
+      '<pre style="font-family:Consolas,monospace;padding:24px;white-space:pre-wrap">' + escaparHtml(texto) + '</pre>'
+    ).setTitle('Limpeza do Gmail');
+  }
   var destino = { aprovar: 'ativa', rejeitar: 'rejeitada', pausar: 'pausada' }[acao];
   var msg;
   if (!id || !destino || !comparaSeguro(token, assinar_(id + '|' + acao))) {

@@ -12,7 +12,8 @@ var ABAS = {
   HISTORICO: 'Historico_Lixeira',
   COMPORTAMENTO: 'Comportamento',
   PROTEGIDOS: 'Protegidos',
-  CONFIG: 'Config'
+  CONFIG: 'Config',
+  ERROS: 'Erros'
 };
 
 var CABECALHOS = {
@@ -24,7 +25,8 @@ var CABECALHOS = {
     'categoria', 'foi_aberta', 'tinha_anexo', 'tipos_anexo', 'list_unsubscribe'],
   Comportamento: ['chave', 'recebidos', 'lidos', 'respondidos', 'estrelados', 'mantidos_caixa', 'atualizado_em'],
   Protegidos: ['padrao', 'tipo', 'origem', 'adicionado_em'],
-  Config: ['chave', 'valor', 'descricao']
+  Config: ['chave', 'valor', 'descricao'],
+  Erros: ['data', 'funcao', 'mensagem', 'pilha']
 };
 
 var ACOES = ['lixeira', 'arquivar', 'ler_rotular'];

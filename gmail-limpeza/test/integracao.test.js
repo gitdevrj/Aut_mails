@@ -408,3 +408,16 @@ test('instalação pelo Web App (?a=instalar) cria tudo e é idempotente', () =>
   assert.equal(Object.keys(a.estado.planilhas).length, 1);
   assert.equal(a.estado.gatilhos.filter((g) => g.tipo !== 'unico').length, 5);
 });
+
+test('falhas das execuções ficam registradas na aba Erros', () => {
+  const a = cenario();
+  a.novaExecucao();
+  a.ctx.Gmail.Users.Messages.list = () => { throw new Error('falha simulada do Gmail'); };
+  assert.throws(() => a.ctx.coletarHistorico(), /falha simulada/);
+  const erros = a.linhas('Erros');
+  assert.equal(erros.length, 1);
+  assert.equal(erros[0].funcao, 'coletarHistorico');
+  assert.match(erros[0].mensagem, /falha simulada do Gmail/);
+  const resp = a.ctx.doGet({ parameter: { a: 'semear' } });
+  assert.match(resp.conteudo, /Erro: .*falha simulada/);
+});

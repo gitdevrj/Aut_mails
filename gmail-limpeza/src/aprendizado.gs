@@ -4,7 +4,7 @@
 
 /** Acionador semanal. */
 function executarAprendizado() {
-  comTrava_(function () { aprendizadoInterno_(); });
+  comTrava_(function () { aprendizadoInterno_(); }, 'executarAprendizado');
 }
 
 /**
@@ -18,8 +18,8 @@ function semear() {
     var criadas = aprendizadoInterno_();
     propriedades_().deleteProperty('SEMENTE_PENDENTE');
     console.log('Carga inicial concluída: ' + criadas + ' regra(s) criada(s).');
-    enviarRelatorio();
-  });
+    enviarRelatorioInterno_();
+  }, 'semear');
 }
 
 /** Devolve o número de regras criadas. */
